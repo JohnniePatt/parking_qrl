@@ -1,0 +1,9 @@
+{
+  "model": "Model_RL",
+  "status": "not_implemented",
+  "max_actions": 200,
+  "seed": 42,
+  "algorithm": null,
+  "hyperparameters": {},
+  "note": "Algorithm and hyperparameters will be selected in phase 2; action budget is not episode count."
+}

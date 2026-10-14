@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "rectangle_42",
+  "seed": 42,
+  "units": "metres",
+  "width": 48,
+  "height": 30,
+  "gates": [
+    {
+      "id": "entry",
+      "role": "entry",
+      "side": "west",
+      "point": [
+        0,
+        9.0
+      ],
+      "width": 6,
+      "reserve": {
+        "id": "entry_clearance",
+        "kind": "reserve",
+        "x": 1.5,
+        "y": 9.0,
+        "length": 3,
+        "width": 6,
+        "angle": 0
+      }
+    },
+    {
+      "id": "exit",
+      "role": "exit",
+      "side": "east",
+      "point": [
+        48,
+        9.0
+      ],
+      "width": 6,
+      "reserve": {
+        "id": "exit_clearance",
+        "kind": "reserve",
+        "x": 46.5,
+        "y": 9.0,
+        "length": 3,
+        "width": 6,
+        "angle": 0
+      }
+    }
+  ],
+  "obstacles": [
+    {
+      "id": "core_1",
+      "kind": "core",
+      "x": 24,
+      "y": 26.5,
+      "length": 6,
+      "width": 5,
+      "angle": 0
+    },
+    {
+      "id": "column_1",
+      "kind": "column",
+      "x": 12,
+      "y": 4,
+      "length": 0.6,
+      "width": 0.6,
+      "angle": 0
+    },
+    {
+      "id": "column_2",
+      "kind": "column",
+      "x": 36,
+      "y": 26,
+      "length": 0.6,
+      "width": 0.6,
+      "angle": 0
+    }
+  ],
+  "starter_actions": [
+    {
+      "type": "place",
+      "kind": "road",
+      "x": 24,
+      "y": 9.0,
+      "length": 48,
+      "width": 6,
+      "rotation": 0
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": 2,
+  "units": "metres",
+  "road_widths": [3.5, 6.0],
+  "grid_resolutions": [0.1, 0.25, 0.5],
+  "default_grid_resolution": 0.25,
+  "default_max_actions": 200,
+  "edge_contact_allowed": true,
+  "road_intersections_allowed": false,
+  "overlap_allowed": false,
+  "snap_anchor": "centre",
+  "snap_mode": "nearest_grid_point",
+  "access_check": "undirected_road_connectivity_and_projected_frontage",
+  "frontage_tolerance": "grid_resolution + 0.01 metres (outward grid quantization)",
+  "swept_path_check": "not_implemented",
+  "provenance": "User-defined experimental dimensions; see LITERATURE.md"
+}

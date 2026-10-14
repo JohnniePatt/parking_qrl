@@ -1,0 +1,10 @@
+{
+  "model": "Model_QRL",
+  "status": "not_implemented",
+  "max_actions": 200,
+  "seed": 42,
+  "algorithm": null,
+  "hyperparameters": {},
+  "quantum_backend": null,
+  "note": "No quantum advantage is assumed. Circuit, shots, backend and classical baseline must be defined in phase 2."
+}

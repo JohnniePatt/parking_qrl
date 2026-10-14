@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "units": "metres",
+  "angle_convention": "Degrees from row axis to vehicle length axis; aisle at local negative Y; quarter-turn rotation chooses aisle side",
+  "templates": {
+    "perpendicular": {"label": "90° เข้าซอง", "angle": 90, "length": 5.5, "width": 2.5, "minimum_aisle_width": 6.0},
+    "angled": {"label": "45° ก้างปลา", "angle": 45, "length": 5.5, "width": 2.5, "minimum_aisle_width": 3.5},
+    "parallel": {"label": "ขนานข้าง", "angle": 0, "length": 5.5, "width": 2.5, "minimum_aisle_width": 3.5}
+  }
+}
