@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "experimental_passenger_car",
+  "units": "metres_degrees",
+  "length": 4.5,
+  "width": 1.8,
+  "wheelbase": 2.7,
+  "rear_overhang": 0.9,
+  "max_steering_degrees": 30.0,
+  "clearance": 0.05,
+  "sample_distance": 0.25,
+  "radius_offsets": [0.0, 0.5, 1.0, 1.5, 2.0],
+  "final_straight_distances": [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0],
+  "assumptions": "Research vehicle, not manufacturer data. Low-speed bicycle model, instantaneous steering at segment boundaries, reversing allowed. All other stalls treated occupied. No gradients or dynamic obstacles."
+}

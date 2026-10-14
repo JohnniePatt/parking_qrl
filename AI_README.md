@@ -1,80 +1,61 @@
-# บริบทและข้อตกลงของ Parking QRL
+## Classical DQN: Train / Test พร้อมใช้งาน
 
-อัปเดต: 14 ตุลาคม 2026 · Phase 1: โครงระบบและเครื่องมือ ยังไม่ฝึกโมเดล
+- `Models/Model_RL/model.py`: CNN + remaining-budget MLP, masked epsilon-greedy DQN, replay buffer, Huber TD loss, gradient clipping, hard target sync. CPU implementation for reproducibility and low setup overhead.
+- `Models/Model_RL/adapter.py`: calls only shared Environment APIs; no placement/policy logic in UI or model.
+- `Models/Model_RL/trainer.py`: independent background jobs, train/evaluation loops, cooperative stop after current action, checkpoints and per-episode JSON snapshots. Manual workspace stays intact while learning.
+- `Models/Model_RL/config.json`: pilot 100 episodes, maximum 50 actions/episode, training seeds 42/43/44, evaluation seeds 101/102/105 every 50 episodes. Shared environment default action limit is also 50; manual Tools session remains at 200. Episode can finish early or stop when no placement action remains.
+- In Model runs, use **เริ่ม Train DQN**, observe reward / verified-slot charts, then select a saved checkpoint and **Test โมเดลที่เลือก**. Test uses epsilon=0 and does not call optimizer/replay learning. Same shared geometry, audit and reward rules for training and test.
+- `Outputs/Model_RL/<run id>/`: `checkpoint.pt` (last), `best.pt` (best training verified slots, not selected on held-out scores), `metrics.json`, `manifest.json`, and train/evaluation/test episode JSON files. Replay reads snapshots without rerunning. Config, catalogue hash, policy and vehicle profile are recorded. Checkpoint loading rejects environment signature mismatch.
+- Checkpoints support evaluation; restarting training is a fresh run. Replay buffer and random-generator state are not persisted, so this is not exact training resume.
+- New runs use the finite existing catalogue: full horizontal roads and 90°/45° rows, fixed candidate anchors. Parallel is supported in manual tools but is not yet an RL action. No remove/move actions in this first DQN baseline. Model_QRL remains unimplemented.
+- Rewards count vehicle-verified slots only. Vehicle search is bounded: unknown gets no positive slot reward. Planner speed and incomplete search are methodological limitations. Runtime and learning quality must be measured; implementation tests do not prove convergence or quantum advantage.
+- Torch is in `requirements.txt`; run with the project virtual environment. Training is opt-in: no 100-episode job automatically starts on opening the UI. Short smoke tests verify that real neural weights update and checkpoints reload.
 
-## เป้าหมายงานวิจัย
+## ข้อตกลงกับผู้วิจัย
 
-สร้างผังจอดรถจากพื้นที่อาคาร เสา Core ทางลาด และทางเข้า–ออก แล้วเปรียบเทียบ Classical RL กับ QRL บน environment และ policy เดียวกัน เป้าหมายคือจำนวนช่องจอด การใช้พื้นที่ การละเมิดข้อกำหนด และเวลาค้นหาคำตอบ ยังไม่มีหลักฐานจากโปรเจกต์นี้ว่า QRL ดีกว่า RL
+- ระบบวิจัยจัดผังจอดรถจาก boundary, columns, core, ramps และ gates; ระยะแรกใช้กรณีสี่เหลี่ยม 48 × 30 m พร้อมเสา/Core ตัวอย่างและสุ่มประตู ยังไม่มี CAD import หรือ ramp model สมบูรณ์
+- `main.py` เป็น composition root และ API orchestration; `Arrange_tools/controller.py` แก้สถานะการวาง; `Arrange_tools/Policies/` แยกกฎจาก controller; `UI/` แสดงผลและเรียก API เท่านั้น ไม่คำนวณกฎจัดวางเอง
+- ชื่อไฟล์ตัวเล็ก ยกเว้น AI_README.md และ LITERATURE.md ที่ผู้ใช้กำหนด; UI ใช้ชื่อนี้ตามผู้ใช้; Models และ Outputs แยก Model_RL / Model_QRL
+- UI เป็นเว็บเต็มความกว้าง ฝั่งซ้าย 1/3 มี status ด้านบนและ action log ด้านล่าง ฝั่งขวา 2/3 เป็นพื้นที่ผังและเครื่องมือ มีหน้าเครื่องมือ / Model runs / Replay
+- หน่วยเมตร ช่องทุกแบบ 5.5 × 2.5 m มี 90°, 45° และขนาน; grid 0.1 / 0.25 / 0.5 m ขนาดชิ้นงานจริงไม่ถูกขยายให้ลง cell
+- ผู้ใช้เคยกำหนด 200 **actions ต่อการรัน** ไม่ใช่ 200 episodes; ล่าสุดอนุมัติข้อเสนอเริ่ม DQN ที่สูงสุด 50 actions ต่อ episode และ 100 episodes สำหรับ pilot จบก่อนได้ ไม่ต้องทำให้ครบ 50; manual tool budget ยังคง 200
+- ผู้ใช้ต้องการทำงานต่อเนื่องโดยไม่ขออนุมัติซ้ำในงานที่อนุมัติแล้ว ไม่ commit/push หรือแก้ Git identity/history โดยไม่ได้รับคำขอ
 
-## ข้อตกลงที่ผู้ใช้ยืนยัน
+## สภาพแวดล้อมและเครื่องมือปัจจุบัน
 
-- ไฟล์โค้ด/JSON ใช้ตัวเล็ก โฟลเดอร์เริ่มตัวใหญ่และลงท้าย s ยกเว้นชื่อที่ผู้ใช้ระบุ ได้แก่ `Arrange_tools`, `UI`, `Model_RL`, `Model_QRL` และเอกสาร `AI_README.md`, `LITERATURE.md`
-- ใช้ `main.py` เป็น composition root และ orchestration กลาง
-- `Arrange_tools/controller.py` ทำเฉพาะการเปลี่ยนสถานะการวาง กฎต้องอยู่แยกใน `Policies`
-- UI เป็นเว็บเต็มความกว้าง หน้าจอ desktop แบ่งซ้าย 1/3 ขวา 2/3 ฝั่งซ้ายครึ่งบนเป็นสถานะ ครึ่งล่างเป็น action log ทางขวาเป็นผังและเครื่องมือ หน้าจอแคบเรียงแนวตั้ง
-- UI มีหน้าทดสอบเครื่องมือ หน้ารันโมเดล และหน้า preview/replay; UI มี event bindings และการวาดภาพเท่านั้น ห้ามมีกฎหรือตัวเปลี่ยนสถานะผังใน JavaScript
-- 200 หมายถึง **200 actions ต่อ session/run** ไม่ใช่ 200 episodes ปรับได้ และนับคำสั่งที่ถูกปฏิเสธด้วย
-- Models แยก `Model_RL`, `Model_QRL` แต่ละตัวมี `model.py`, `adapter.py`, `config.json`
-- Outputs เตรียม `Model_RL`, `Model_QRL`; ผลทดสอบมือบันทึก `Outputs/manual_*.json` โดยไม่อ้างว่าเป็นผลโมเดล
-- Layouts เก็บ JSON อ่านง่าย เริ่มด้วยสี่เหลี่ยมผืนผ้าและสุ่มทางเข้า–ออก
-- ช่องจอด 90°, 45°, ขนานข้าง ยาว 5.5 × กว้าง 2.5 เมตรทุกแบบ; ทางรถกว้าง 3.5 หรือ 6 เมตร
-- Templates อยู่ใน `Arrange_tools/Slot_layouts/slots.json`
-- Grid เลือก 0.1, 0.25, 0.50 เมตร ค่าเริ่มต้น 0.25 เมตร
-- รอบแรกทำโครงระบบและเครื่องมือก่อน มีเอกสารบริบทและ literature review อยู่ข้าง `main.py`
+- ใช้ virtual environment `../parking_qrl-env`; มี NumPy, Gymnasium, Shapely และ PyTorch; requirements.txt และ requirements-lock.txt อยู่ root โปรเจกต์ PennyLane ยังไม่ติดตั้ง
+- เปิดเว็บด้วย `../parking_qrl-env/bin/python main.py`; เปลี่ยน HTML/JS มีผลเมื่อ refresh แต่เปลี่ยน Python ต้อง restart server ก่อนเสมอ ตรวจ capabilities เพื่อกัน static UI ใหม่เรียก server เก่า
+- ก่อน restart เว็บที่ผู้วิจัยใช้อยู่ ให้เรียก /api/save เก็บผัง แล้วเปิด `main.py --resume Outputs/<saved manual JSON>` เพื่อรักษา items/history/budget ตรวจว่า snapshot รับคืนได้ก่อนหยุด server
+- /api/propose เป็น preview แบบ read-only ใช้ Controller._propose ชุดเดียวกับ commit; UI แสดงเงาเหลืองทันทีและเปลี่ยนเขียว/แดงจากผล backend ห้ามทำ snapping/collision policy ซ้ำใน JavaScript
+- Drag จาก palette / คลิกวาง / ลากย้าย / R หมุน / Escape ยกเลิก / Delete ถอน; preview ยกเลิก stale responses และ latency ได้ มี regression JavaScript
+- Snap เฉพาะจุดกึ่งกลาง; collision เป็น continuous rectangle SAT ห้ามพื้นที่ทับกันทุกกรณีรวม road-road แต่แตะขอบกันได้ ถนนต่อที่จุดมุมเดียวไม่นับเชื่อม
+- `rows.py` ขยายแถว 90/45 เป็น rectangles จริง จัดเป็นหนึ่ง action ทั้งแถว หากช่องใดผิดกฎปฏิเสธทั้งแถว manual ยังย้าย/ถอนรายช่องได้ ยังไม่รองรับแก้ทั้งกลุ่มแถว
+- ทุก action รวม rejected มี timestamp UTC, elapsed time, command, accepted/reason, before/after เก็บ JSON เพื่อ Replay โดยไม่รันซ้ำ
 
-## การไหลของคำสั่งและเหตุผล
+## การเข้าถึงและตรวจรถ
 
-```text
-UI event → UI/server.py → main.Application → Arrange_tools.Controller
-                                               ↓ Validator ที่ main ประกอบให้
-                                          Policies แยกตามหน้าที่
+- **3.5 m = one way** ตาม rotation 0° → / 90° ↓ / 180° ← / 270° ↑; **6 m = two way** เป็นข้อกำหนดจากผู้วิจัย ห้ามเปลี่ยนกลับเป็นถนนไม่แยกทิศ
+- `accesses.py` ตรวจ directed road graph + frontage probes; ถนนยังวางแยกส่วนได้ระหว่างสร้าง แต่ slot ต้องติดถนนที่ต่อถึง entry/exit ตามทิศ
+- `vehicles.py` ใช้ low-speed rear-axle bicycle model รถ 4.5 × 1.8 m wheelbase 2.7 m steering 30°; รัศมีล้อหลังขั้นต่ำ ~4.68 m ไม่ใช่ curb-to-curb turning radius
+- `turnings.py` ลอง analytic arc templates ก่อน แล้ว `paths.py` ทำ bounded hybrid A* สำหรับเครือข่ายถนนและทุก template; ตรวจ Shapely footprints และ conservative swept envelope ระหว่าง pose พร้อมบังคับทิศใน `traffics.py`
+- อนุญาตถอยสวนลูกศรใกล้ช่องเฉพาะการจอดเมื่อหัวรถหันตามทิศจราจร ห้ามใช้ reverse เดินทางไกลสวนทาง
+- พื้นที่เชื่อมปากช่องก้างปลาไปถนนต้องขยายตามแกนรถเฉียง ไม่ใช่ vertical projection; บั๊กเดิมทำให้ 45° ถูกปฏิเสธผิด แก้แล้วและมี regression ตำแหน่ง x44.75 y15 rotation0
+- ช่องอื่นถือว่ามีรถจอดอยู่ หัก obstacles/ช่องอื่นออกจาก drivable region และ clip boundary เสมอ
+- passed = พบ witness เข้าและออกจริง; failed = ขัดเงื่อนไขที่ชัดเจน; unknown = ตัวค้นหายังไม่พบ ไม่ใช่หลักฐานว่าใช้ไม่ได้ ไม่ให้ positive slot reward กับ unknown
+- การวางและ Action Mask ตรวจ geometry/access; vehicle audit แยกตรวจภายหลังสำหรับ reward ไม่ทำ path search ทุก preview เพราะช้า ผลเชื่อม graph ไม่เท่ากับรถเลี้ยวผ่าน
 
-main → Model adapter → Model → shared Environment → Controller (Phase 2)
-main → Outputs.Repository → JSON → UI replay
-```
+## ข้อจำกัดและงานถัดไป
 
-`main.py` ประกอบ dependency และจัด session/load/save ส่วนการตรวจทุกรูปแบบอยู่ที่ขอบเขต Controller เพื่อไม่ให้ UI หรือโมเดลข้าม policy ได้โดยเผลอ UI ไม่เรียก controller โดยตรงผ่านภาษา Python แต่เรียก HTTP route ที่ main รับผิดชอบ `adapter.py` คือไฟล์กลางที่ผู้ใช้ขอ ไม่ใช่โมเดลหรือกฎชุดใหม่
+- Classical DQN ใช้งานได้แล้ว แต่ผลทดสอบระบบ/การฝึกสั้นไม่ใช่หลักฐาน convergence และยังไม่มีผลเปรียบเทียบ RL/QRL/GA
+- Dataset ปัจจุบันมีเพียง rectangle family เดิม เปลี่ยนตำแหน่ง/บทบาทประตู ตรวจ geometry ซ้ำข้าม split ด้วย `Models/datasets.py` เพราะ seed ต่างกันสร้างผังซ้ำได้
+- ชุดประเมินที่ใช้ติดตามทุก 50 episodes เป็น development evaluation; ต้องกัน final test cases แยกสำหรับงานวิจัยจริง
+- Candidate actions ยังเป็นกริดตำแหน่งห่าง 6 m ไม่ใช่ทุกตำแหน่ง 0.5 m; ถนนเป็นแนวนอนเต็มผังเท่านั้น ยังไม่มี action ถนนแขนง/ช่องขนาน/ย้าย/ถอนใน DQN baseline
+- รองรับผังเสา/core ตัวอย่าง แต่ยังไม่มี accessible parking, door clearance, slope/headroom/ramp dynamics, tandem, polygon boundary ทั่วไป หรือ certification
+- Vehicle search จำกัดงบและ discretization อาจให้ unknown กับผังที่ใช้ได้จริง ต้องรายงานผลกระทบและเวลาในการฝึก
+- เป้าหมายถัดไปคือ pilot 100 episodes วัดความเร็ว/learning curves ก่อนปรับ hyperparameters หรือขยาย action space จากนั้นทำ Quantum DQN ด้วย environment/reward/split เดียวกัน
 
-## สิ่งที่ทำแล้ว
+## การยืนยันล่าสุด
 
-- เพิ่มตามคำขอผู้ใช้: เมนู BUILD MENU ลากช่องจอด/ถนนลงผังแบบเกม เลือกการ์ดแล้วคลิกวางซ้ำได้ และโหมดเลือกลากย้ายของเดิม มีเงาระหว่างลาก หมุน R ยกเลิก Esc ถอน Delete เมนู sticky ขณะเลื่อนหน้า
-- `UI/interactions.js` รับ pointer/keyboard และวาดเงาเหลืองตาม pointer ทันทีระหว่างรอ `/api/propose` ผลจาก backend จึงเปลี่ยนเป็นเงา snap สีเขียว/แดง ไม่แก้ `live.items` ไม่ตรวจ policy หรือ snap ซ้ำใน browser ปล่อยวางแล้วเรียก `/api/action` ผ่าน main/controller เดิมหนึ่งครั้งต่อ action; ปล่อยนอกผังหรือยกเลิกไม่เพิ่ม action และไม่อนุญาตแก้ผังระหว่าง Replay/Model runs
-
-- เว็บ Python standard library + HTML/CSS/JavaScript ไม่ต้องติดตั้ง package ภายนอก
-- วาง ย้าย หมุนครั้งละ 90° ถอน reset ผ่าน controller และ validation ชุดกลาง
-- ตรวจรูปทรงสี่เหลี่ยมหมุนจริงด้วย separating axis test: ไม่ออกนอกพื้นที่ ไม่ชนเสา/Core ไม่ทับ slot/road และไม่ปิด reserve ทางเข้า–ออก
-- ถนนต่อชนขอบกันได้แต่ห้ามทับกัน รวม road-road ตามข้อกำหนดล่าสุด (policy version 2) แยกการตรวจเชื่อมต่อออกจากการชน
-- ทุก slot ต้องมีถนนขนานกับแนวแถวติด projected frontage และอยู่ใน component ที่เชื่อมทั้ง entry และ exit
-- ถนนยังสร้างเป็นส่วนที่ไม่ต่อกันได้ระหว่างจัดผัง แต่ยังใช้รองรับ slot ไม่ได้จนกว่าจะเชื่อม entry/exit
-- ตรวจผลกระทบทั้งผังทุกครั้ง การย้าย/ถอนถนนที่ทำให้ slot เดิมผิด policy จะถูกปฏิเสธและคงสถานะเดิม
-- เก็บ before/after ของทุก action, timestamp UTC, elapsed time, คำสั่งที่ร้องขอ, accepted/reason และสถานะหลัง snap
-- JSON ผลลัพธ์ฝัง layout, policy, templates, grid, budget, metrics และประวัติ จึง replay ได้โดยไม่พึ่งการฝึกซ้ำหรือไฟล์ config ปัจจุบัน
-- ผังเริ่มต้น 48 × 30 เมตร มี Core/เสาตัวอย่าง seed สุ่มตำแหน่ง Y ของประตูบนฝั่งตะวันตก–ตะวันออกและสลับบทบาท entry/exit ถนนเริ่มต้นถูกบันทึกเป็น **Action 1**
-- การสร้าง session ใหม่เริ่ม budget และ log ใหม่ ส่วน reset เป็น action ที่ล้างอุปกรณ์ใน session เดิม
-- โครงสร้างโมเดลและ shared environment พร้อม interface แต่ `act()` จะยก NotImplementedError; ปุ่ม run ถูกปิดไว้
-
-## ข้อจำกัดที่ต้องรักษาความชัดเจน
-
-1. ค่าช่องจอดและถนนเป็น **experimental profile จากผู้ใช้** ไม่ใช่ค่ามาตรฐานไทยหรือการรับรองกฎหมาย ผล literature review ห้ามนำมาทับค่าที่ผู้ใช้ระบุโดยไม่ตกลง
-2. Collision ใช้ continuous geometry หน่วยเมตร Grid snap เฉพาะจุดกึ่งกลาง ไม่ย่อ/ขยายช่องจอดให้หารลงตัวกับ cell โดยเฉพาะ 0.50 เมตร
-3. Grid occupancy แบบ sparse แยก obstacle/road/slot: cell ที่มีเนื้อที่ตัดกับรูปทรงถูกนับ occupied ดังนั้นรูปทรงสองชิ้นที่ไม่ชนกันอาจมี cell ร่วมกันได้ ข้อมูลนี้ยังไม่ใช่ observation encoding ของโมเดล
-4. Frontage ใช้ 5 probes ตลอดความกว้าง projected envelope ยอมระยะถึงหนึ่ง grid cell + 0.01 เมตร เพื่อรองรับการปัดตำแหน่งออกจากถนนของรูปทรง 45° เป็น geometric proxy ไม่ใช่เส้นทางรถจริง
-5. Graph ถนนเป็น undirected ไม่มีการบังคับเลนเดินรถทางเดียว ลูกศร/ตัวเลขในภาพใช้สื่อความหมายผังเท่านั้น ห้ามอ้างว่าผ่านการตรวจ traffic flow
-6. ถนนต่อกันที่มุมจุดเดียวไม่นับเชื่อมต่อ แต่การต่อที่มีความกว้างเป็นบวกยังไม่ได้รับรองว่ารถเลี้ยวผ่านได้
-7. 90° ต้องติดถนน 6 เมตร; 45°/parallel ยอม 3.5 หรือ 6 เมตร เป็น implementation decision สำหรับ profile ทดลอง ยังไม่ใช่ผลวิเคราะห์ swept path
-8. ยังไม่มี turning radius, swept path, ที่จอดผู้พิการ, ความชัน/ความสูงทางลาด, clearance เปิดประตู, tandem/double parking, CAD import หรือขอบเขต polygon ไม่สม่ำเสมอ
-9. ยังไม่มี reward function, algorithm RL/QRL, training loop, checkpoint หรือผลเปรียบเทียบจริง ต้องกำหนด observation/action encoding และ reward ร่วมกันใน Phase 2
-10. local server เป็น single shared research session และผูก loopback ใช้ทดลองบนเครื่อง ไม่ใช่ระบบหลายผู้ใช้
-11. `config.json` ของโมเดลเป็น scaffold; UI session limit ยังไม่ใช่ hyperparameter ที่โหลดจากโมเดล เพราะยังไม่มีการรันโมเดล
-
-## แนวทางงานรอบถัดไป
-
-เริ่มจากยืนยัน policy profile และเพิ่ม vehicle model/swept-path validation ก่อนอ้าง feasibility ทางสถาปัตยกรรม เลือก RL baseline และ QRL circuit/backend ให้ชัด กำหนด reward, observation และ action space ชุดเดียวกัน วัดทั้ง 200-action budget และ wall-clock budget หลาย seed หลายผัง พร้อม conventional baseline แยก train/evaluation layouts และรายงานต้นทุน simulator/quantum shots อย่างเปิดเผย
-
-เอกสารอ้างอิงและเหตุผลเชิงวิจัยอยู่ใน `LITERATURE.md` วิธีเปิดโปรแกรมและคำสั่งทดสอบอยู่ใน `readme.md`
-
-## Latest user decision: shared snap and no-overlap policies
-
-Policy version 2 moves snapping into `Policies/snapping.py`, called by `Validator.prepare()`, with an additional off-grid check in `validate()`. Controller shares `_propose()` between preview and commit. Moving excludes only the original object itself from collision tests. The previous road-road overlap exemption has been removed: all positive-area overlap is rejected, while edge contact remains allowed.
-
-`POST /api/propose` has no effect on state/history/action budget. It returns snapped geometry plus accepted/reason. UI uses those results for green/red ghosts, throttles preview requests and discards cancelled/stale gesture responses. Dropping calls `/api/action` and validates again against current state. Saved old outputs are not rewritten and can still be replayed as historical records.
+- Unit/integration tests ครอบคลุม geometry, rows, Gymnasium contract, directed traffic, swept paths, rewards, snapshot restore, Bellman action masking, target sync, checkpoint loading, frozen test weights, background jobs, cancel และ dataset leakage
+- Short run บน Environment จริง 4 episodes / เพดาน 4 actions สำหรับ smoke test มี 9 train transitions และ 8 optimizer updates พร้อม saved checkpoint และ evaluation 1 episode; ใช้ batch_size=2 เฉพาะ smoke test ไม่เปลี่ยน default batch_size=32 หรือ 100/50 ใน config
+- ห้ามตีความผล smoke test ว่าโมเดลเรียนรู้ดีแล้ว หรือเป็นผลวิจัย; ให้ผู้วิจัยเริ่ม pilot ด้วยค่า default จากหน้า Model runs

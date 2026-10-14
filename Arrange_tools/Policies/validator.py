@@ -1,10 +1,18 @@
 from Arrange_tools.Policies import collisions, dimensions, accesses, snapping
 from Arrange_tools.geometries import polygon
+import json
+from pathlib import Path
 
 
 class Validator:
-    def __init__(self, policies, templates):
+    def __init__(self, policies, templates, vehicle_profile=None):
         self.policies, self.templates = policies, templates
+        from Arrange_tools.Policies.turnings import Auditor
+        profile=vehicle_profile or json.loads((Path(__file__).resolve().parents[1]/'vehicle.json').read_text())
+        self.vehicle_auditor=Auditor(profile,templates)
+
+    def audit(self,items,layout,resolution=0.25):
+        return self.vehicle_auditor.audit(items,layout,resolution)
 
     def prepare(self, item, resolution):
         item = snapping.prepare(item, resolution)

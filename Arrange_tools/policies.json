@@ -1,8 +1,15 @@
 {
-  "version": 2,
+  "version": 4,
   "units": "metres",
-  "road_widths": [3.5, 6.0],
-  "grid_resolutions": [0.1, 0.25, 0.5],
+  "road_widths": [
+    3.5,
+    6.0
+  ],
+  "grid_resolutions": [
+    0.1,
+    0.25,
+    0.5
+  ],
   "default_grid_resolution": 0.25,
   "default_max_actions": 200,
   "edge_contact_allowed": true,
@@ -10,8 +17,14 @@
   "overlap_allowed": false,
   "snap_anchor": "centre",
   "snap_mode": "nearest_grid_point",
-  "access_check": "undirected_road_connectivity_and_projected_frontage",
+  "access_check": "directed_road_connectivity_and_projected_frontage",
   "frontage_tolerance": "grid_resolution + 0.01 metres (outward grid quantization)",
-  "swept_path_check": "not_implemented",
-  "provenance": "User-defined experimental dimensions; see LITERATURE.md"
+  "swept_path_check": "bicycle_templates_and_hybrid_astar_v2",
+  "vehicle_audit_mode": "separate_audit_not_geometry_placement_gate",
+  "unknown_vehicle_path_receives_slot_reward": false,
+  "provenance": "User-defined experimental dimensions; see LITERATURE.md",
+  "road_traffic": {
+    "3.5": "one_way_rotation_direction",
+    "6.0": "two_way"
+  }
 }

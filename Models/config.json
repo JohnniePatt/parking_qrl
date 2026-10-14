@@ -1,0 +1,11 @@
+{
+  "resolution": 0.5,
+  "max_actions": 50,
+  "seed": 42,
+  "start_with_road": false,
+  "row_types": ["perpendicular", "angled"],
+  "row_lengths": [10.0, 15.0],
+  "candidate_stride_metres": 6.0,
+  "reward": {"per_valid_slot": 1.0, "invalid_action": -1.0, "step_cost": -0.01},
+  "note": "Experimental environment configuration, not tuned results. Road actions precede rows when starting empty."
+}

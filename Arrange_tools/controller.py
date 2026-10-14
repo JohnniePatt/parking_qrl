@@ -3,6 +3,7 @@ from copy import deepcopy
 from datetime import datetime, timezone
 import math
 from time import perf_counter
+from Arrange_tools.rows import expand
 
 
 class Controller:
@@ -12,6 +13,25 @@ class Controller:
         self.resolution, self.max_actions = resolution, max_actions
         self.items, self.history = [], []
         self.started = perf_counter()
+
+    def _object_id(self):
+        object_id='object_'+str(len(self.history)+1)
+        used={i['id'] for i in self.items}
+        while object_id in used:
+            object_id+='_new'
+        return object_id
+
+    def initialize(self,commands):
+        """Validated initial state without consuming agent action history."""
+        if self.items or self.history:
+            raise ValueError('Initial state can only be loaded into an empty controller')
+        staged=Controller(self.layout,self.templates,self.validator,self.resolution,
+                          max(self.max_actions,len(commands)))
+        for command in commands:
+            event=staged.apply(command)
+            if not event['accepted']:
+                raise ValueError('Invalid initial layout: '+event['reason'])
+        self.items=deepcopy(staged.items)
 
     def _item(self, command, object_id):
         kind = command.get('kind', 'slot')
@@ -34,6 +54,8 @@ class Controller:
             raise ValueError('Coordinates and dimensions must be finite')
         item = dict(id=object_id, kind=kind, template=template_id, x=x,
                     y=y, length=length, width=width, angle=angle, rotation=rotation)
+        if kind=='road':
+            item['traffic']='one_way' if abs(width-3.5)<1e-6 else 'two_way'
         return self.validator.prepare(item, self.resolution)
 
     def _propose(self, command):
@@ -42,7 +64,10 @@ class Controller:
         try:
             action = command.get('type')
             if action == 'place':
-                candidate.append(self._item(command, 'object_' + str(len(self.history)+1)))
+                candidate.append(self._item(command, self._object_id()))
+            elif action == 'place_row':
+                candidate.extend(expand(command,self.templates,self.resolution,
+                                        'row_'+str(len(self.history)+1),self.validator.prepare))
             elif action in ('move','remove'):
                 target = next((i for i in candidate if i['id']==command.get('id')), None)
                 if target is None:
@@ -52,6 +77,8 @@ class Controller:
                     candidate.append(self._item({**target, **command, 'rotation': command.get('rotation',target['rotation'])}, target['id']))
             elif action == 'reset':
                 candidate = []
+            elif action == 'finish':
+                pass
             else:
                 raise ValueError('Unknown action')
             reason = self.validator.validate(candidate, self.layout, self.resolution)
@@ -65,12 +92,21 @@ class Controller:
         if len(self.history) >= self.max_actions:
             reason = 'Action limit reached; save or start a new session'
         proposal = self._placement(candidate, command)
-        return dict(accepted=reason is None, reason=reason, proposal=proposal)
+        return dict(accepted=reason is None, reason=reason, proposal=proposal,
+                    proposals=self._placements(candidate,command))
+
+    def _placements(self,candidate,command):
+        if command.get('type')=='place_row':
+            return [i for i in candidate if i.get('row_id')=='row_'+str(len(self.history)+1)]
+        item=self._placement(candidate,command)
+        return [item] if item else []
 
     def _placement(self, candidate, command):
+        if command.get('type')=='place_row':
+            return next((i for i in candidate if i.get('row_id')=='row_'+str(len(self.history)+1)),None)
         if command.get('type') not in ('place','move'):
             return None
-        object_id = command.get('id') if command['type']=='move' else 'object_'+str(len(self.history)+1)
+        object_id = command.get('id') if command['type']=='move' else self._object_id()
         return next((i for i in candidate if i['id']==object_id),None)
 
     def apply(self, command):
@@ -83,6 +119,7 @@ class Controller:
         event = dict(step=len(self.history)+1, timestamp=datetime.now(timezone.utc).isoformat(),
                      elapsed_seconds=round(perf_counter()-self.started,6), command=deepcopy(command),
                      accepted=reason is None, reason=reason, proposal=deepcopy(self._placement(candidate,command)),
+                     proposals=deepcopy(self._placements(candidate,command)),
                      before=before, after=deepcopy(self.items))
         self.history.append(event)
         return event

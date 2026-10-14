@@ -2,7 +2,7 @@
 <html lang="th">
 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Parking Lab · Research workspace</title><link rel="stylesheet" href="/styles.css"></head>
 <body>
-<header><div class="brand"><span class="mark">P<span>↗</span></span><div><strong>PARKING LAB</strong><small>Spatial intelligence / research workspace</small></div></div><div class="header-right"><span class="phase">PHASE 01 · TOOL VALIDATION</span><span class="online">● Local workspace</span></div></header>
+<header><div class="brand"><span class="mark">P<span>↗</span></span><div><strong>PARKING LAB</strong><small>Spatial intelligence / research workspace</small></div></div><div class="header-right"><span class="phase">TOOLS + CLASSICAL DQN</span><span class="online">● Local workspace</span></div></header>
 <nav aria-label="Workspace"><button class="tab active" data-tab="tools">01 <span>ทดสอบเครื่องมือ</span></button><button class="tab" data-tab="runs">02 <span>Model runs</span></button><button class="tab" data-tab="previews">03 <span>ผลลัพธ์ / Replay</span></button><span class="nav-caption">ARRANGE → VALIDATE → RECORD</span></nav>
 <main>
 <aside>
@@ -16,29 +16,50 @@
 </aside>
 <section class="workspace"><div class="canvas-heading"><div><div class="eyebrow">LAYOUT WORKSPACE</div><h2 id="canvas-title">Rectangular site <span>48 × 30 m</span></h2></div><button id="save" class="primary-button">↓ บันทึกผล JSON</button></div>
 <div id="feedback" role="status">พร้อมทดสอบ · วางถนนก่อน แล้ววางช่องจอดติดทางรถที่เชื่อมทางเข้า–ออก</div>
+<div id="server-warning" class="notice hidden" role="alert">เซิร์ฟเวอร์ที่เปิดอยู่เป็นรุ่นเก่า ยังไม่รองรับเครื่องมือล่าสุด กรุณาบันทึกงาน แล้วรีสตาร์ต main.py ด้วย virtual environment ของโปรเจกต์ การรีเฟรชหน้าเว็บอย่างเดียวไม่อัปเดต Python ที่กำลังรัน</div>
+<section class="vehicle-panel"><div class="section-title">VEHICLE ACCESS CHECK <button id="vehicle-check" class="secondary">ตรวจรถเข้า–ออก</button></div><p id="vehicle-summary">ยังไม่ตรวจเส้นทางรถ</p><label>ดูเส้นทางช่องที่ผ่าน<select id="vehicle-path"><option value="">ยังไม่มีผลตรวจ</option></select></label><details><summary>ผลตรวจแต่ละช่อง</summary><div id="vehicle-results"></div></details><p class="hint">เขียว: พบทางเข้าและออก · แดง: ขัดเงื่อนไขแน่นอน · ยังยืนยันไม่ได้: ไม่พบในชุดเส้นทางที่ลอง<br>ช่องอื่นถือว่ามีรถจอดอยู่ · ผลทดลอง ไม่ใช่การรับรองแบบก่อสร้าง</p></section>
 <section id="game-tools" class="game-tools" aria-label="เมนูอุปกรณ์จัดผัง">
 <div class="section-title">BUILD MENU <span>ลากลงผัง หรือเลือกแล้วคลิกวาง</span></div>
 <div id="palette" class="palette" role="group" aria-label="เลือกเครื่องมือ"></div>
-<div class="game-toolbar"><span id="active-tool">เลือก / ลากย้ายอุปกรณ์</span><label>ความยาวถนน (m)<input id="quick-length" type="number" min="0.1" max="200" step="0.5" value="12"></label><button id="quick-rotate" class="secondary">↻ หมุน <kbd>R</kbd></button><button id="quick-remove" class="danger" disabled>ถอนที่เลือก</button></div>
+<div class="game-toolbar"><span id="active-tool">เลือก / ลากย้ายอุปกรณ์</span><label>ความยาวถนน / แถว (m)<input id="quick-length" type="number" min="0.1" max="200" step="0.5" value="15"></label><button id="quick-rotate" class="secondary">↻ หมุน <kbd>R</kbd></button><button id="quick-remove" class="danger" disabled>ถอนที่เลือก</button></div>
 <p class="hint">เงาเหลือง = กำลังตรวจ · เขียว = Snap และผ่าน policy · แดง = วางไม่ได้ · R หมุน · Esc ยกเลิก</p>
 </section>
 <details id="tools-panel" class="tab-panel controls-drawer"><summary>เครื่องมือจัดวาง / Session settings <span>เปิดเพื่อวาง ย้าย ถอน และตั้งค่า Grid</span></summary><div class="tool-body">
 <div class="section-title">SESSION SETTINGS</div><div class="fields three"><label>Seed<input id="seed" type="number" value="42" step="1"></label><label>Grid (m)<select id="resolution"><option>0.1</option><option selected>0.25</option><option>0.50</option></select></label><label>Action limit<input id="limit" type="number" min="1" max="10000" value="200"></label></div>
 <button id="new-session" class="secondary wide">↻ สร้างผัง / เริ่ม session ใหม่</button>
 <div class="section-title">PLACEMENT TOOLS <span>METRES</span></div>
-<div class="fields"><label>ประเภทอุปกรณ์<select id="kind"><option value="slot">Parking slot</option><option value="road">ทางรถ / Road</option></select></label><label id="template-label">รูปแบบจอด<select id="template"></select></label></div>
-<div id="road-fields" class="fields hidden"><label>Road width (m)<select id="road-width"><option value="6">6.0 · สองทาง</option><option value="3.5">3.5 · ความกว้างทดลอง</option></select></label><label>Length (m)<input id="road-length" type="number" min="0.1" value="12" step="0.1"></label></div>
+<div class="fields"><label>ประเภทอุปกรณ์<select id="kind"><option value="slot">Parking slot</option><option value="row">Parking row · หนึ่ง action</option><option value="road">ทางรถ / Road</option></select></label><label id="template-label">รูปแบบจอด<select id="template"></select></label></div>
+<label id="row-fields" class="hidden">ความยาวแถว (m)<input id="row-length" type="number" min="2.5" max="48" step="0.5" value="15"></label>
+<p>ถนน 3.5 m: หมุน 0° → / 90° ↓ / 180° ← / 270° ↑ เพื่อเลือกทิศทางเดียว</p><div id="road-fields" class="fields hidden"><label>Road width (m)<select id="road-width"><option value="6">6.0 · สองทาง</option><option value="3.5">3.5 · ทางเดียว →</option></select></label><label>Length (m)<input id="road-length" type="number" min="0.1" value="12" step="0.1"></label></div>
 <div class="fields three"><label>Centre X<input id="x" type="number" value="8" step="0.1"></label><label>Centre Y<input id="y" type="number" value="14.75" step="0.1"></label><label>Rotation<select id="rotation"><option value="0">0°</option><option value="90">90°</option><option value="180">180°</option><option value="270">270°</option></select></label></div>
 <button id="place" class="primary-button wide">＋ วางอุปกรณ์</button>
 <label class="object-label">เลือกอุปกรณ์เพื่อย้าย / ถอน<select id="selected"><option value="">เลือกจากผังหรือรายการ</option></select></label><div class="button-row"><button id="move" class="secondary">ย้ายไป X, Y / หมุน</button><button id="remove" class="danger">ถอน</button><button id="reset" class="secondary">ล้างผัง</button></div>
 <p class="hint">คลิกพื้นที่ว่างเพื่อเลือกพิกัด · คลิกอุปกรณ์เพื่อเลือก<br>Rotation 0° ให้ด้านเข้าจอดหันขึ้นบนผัง (−Y)</p>
 </div></details>
-<div id="runs-panel" class="tab-panel hidden"><div class="section-title">MODEL WORKSPACE</div><div class="notice"><strong>เตรียมไว้สำหรับ Phase 02</strong><p>รอบนี้ทดสอบเครื่องมือและ policy ก่อน โมเดลยังไม่ถูกสร้าง</p></div><label>Model<select id="model"><option>Model_RL</option><option>Model_QRL</option></select></label><button class="secondary wide" disabled>Run model · ยังไม่พร้อมใช้งาน</button><p class="hint">ค่าเริ่มต้น 200 actions ต่อ run รวม action ที่ถูกปฏิเสธ โมเดลทั้งสองจะใช้เครื่องมือและ policy ร่วมกัน</p></div>
+<div id="runs-panel" class="tab-panel hidden">
+<section class="training-panel"><div class="section-title">CLASSICAL DQN · TRAIN / TEST</div>
+<p class="hint">ฝึกจากผังว่าง · Grid 0.5 m · วางทั้งแถว · Reward จากช่องที่ตรวจรถผ่าน</p>
+<div class="fields three"><label>Episodes ฝึก<input id="train-episodes" type="number" min="1" max="10000" value="100"></label><label>Actions สูงสุด / episode<input id="train-limit" type="number" min="1" max="1000" value="50"></label><label>Random seed<input id="train-seed" type="number" value="42"></label></div>
+<div class="button-row"><button id="train-start" class="primary-button">เริ่ม Train DQN</button><button id="train-stop" class="danger" disabled>หยุดหลัง action ปัจจุบัน</button></div>
+<p id="train-status" class="notice">พร้อมเริ่มฝึก</p><progress id="train-progress" max="100" value="0" class="wide"></progress>
+<p id="train-details" class="hint"></p><p class="hint">การฝึกใช้ Environment แยกจากพื้นที่ทดลอง กดเปิด Replay ล่าสุดเพื่อดูผังที่โมเดลสร้าง</p>
+<div class="training-charts"><div><strong>Reward ต่อ episode</strong><svg id="reward-chart" viewBox="0 0 400 120" role="img" aria-label="Training reward chart"></svg></div><div><strong>ช่องที่ตรวจรถผ่าน</strong><svg id="slots-chart" viewBox="0 0 400 120" role="img" aria-label="Verified parking slots chart"></svg></div></div>
+<details><summary>ผล Train / Test แต่ละ episode</summary><div id="train-results" class="training-results"></div></details>
+<div class="section-title">TEST · หยุดเรียนรู้และปิดการสุ่ม</div>
+<label>โมเดลที่บันทึกแล้ว<select id="trained-runs"><option value="">ยังไม่มีโมเดล</option></select></label>
+<div class="button-row"><button id="train-history" class="secondary" disabled>ดูผลฝึกที่บันทึกไว้</button><button id="test-start" class="secondary" disabled>Test โมเดลที่เลือก</button><button id="train-preview" class="secondary" disabled>เปิด Replay ล่าสุด</button></div>
+<p class="hint">ทดสอบอัตโนมัติทุก 50 episodes · ชุดฝึก seeds 42–44 / ชุดทดสอบ 101, 102, 105 · ชุดผังนี้ต่างกันที่ทางเข้า–ออก ยังไม่ใช่การทดสอบอาคารรูปทรงใหม่ · Model_QRL ยังไม่พร้อม</p>
+</section>
+<details><summary>ทดสอบ Environment ทีละ action</summary><p class="hint">ผังว่าง · Grid 0.5 m · สูงสุด 50 actions</p>
+<button id="env-reset" class="secondary wide">Reset Environment</button>
+<label>คำสั่งที่ผ่านกฎจัดวางเบื้องต้น (ตรวจรถและ reward หลัง Step)<select id="env-actions"><option value="">Reset environment first</option></select></label>
+<button id="env-step" class="primary-button wide" disabled>Step action</button><p id="env-reward" class="notice">Reward: — · Return: —</p></details>
+</div>
 <div id="previews-panel" class="tab-panel hidden"><div class="section-title">SAVED RESULTS <button id="refresh" class="text-button">↻ Refresh</button></div><label>Output JSON<select id="outputs"><option value="">เลือกผลที่บันทึกไว้</option></select></label><button id="load-output" class="secondary wide">เปิดผลลัพธ์</button><div class="replay"><div class="section-title">ACTION TIMELINE <span id="frame-label">0 / 0</span></div><input id="timeline" type="range" min="0" max="0" value="0" aria-label="Replay action"><div class="button-row"><button id="previous" class="secondary">← Previous</button><button id="play" class="secondary">▶ Play</button><button id="next" class="secondary">Next →</button></div></div><p class="hint">Replay อ่านสถานะจาก JSON โดยไม่รันโมเดลใหม่ รองรับผลจาก Model_RL และ Model_QRL ตาม schema กลาง</p></div>
 
 <div class="canvas-container"><svg id="canvas" viewBox="-2 -3 52 36" role="img" aria-label="Parking layout plan"></svg><div class="canvas-note">PLAN VIEW <span id="pointer-position">หน่วย: เมตร · ลากจากเมนูเพื่อวาง</span></div></div>
 <div class="legend"><span><i class="swatch slot"></i>ช่องจอด</span><span><i class="swatch road"></i>ทางรถ</span><span><i class="swatch obstacle"></i>Core / เสา</span><span><i class="swatch gate"></i>เข้า–ออก</span><label><input id="show-grid" type="checkbox" checked> แสดง Grid</label></div>
-<div class="policy-strip"><div><strong>5.5 × 2.5 m</strong><span>ขนาดช่องจอดทุกประเภท</span></div><div><strong>90° / 45° / Parallel</strong><span>ผสมรูปแบบในผังเดียวกัน</span></div><div><strong>3.5 / 6.0 m</strong><span>ความกว้างทางรถทดลอง</span></div></div>
-<p class="scope-note">RESEARCH PROTOTYPE · ตรวจการชน ขอบเขต และการเชื่อมต่อเบื้องต้น · ยังไม่ตรวจ swept path / รัศมีเลี้ยวจริง</p>
+<div class="policy-strip"><div><strong>5.5 × 2.5 m</strong><span>ขนาดช่องจอดทุกประเภท</span></div><div><strong>90° / 45° / Parallel</strong><span>ผสมรูปแบบในผังเดียวกัน</span></div><div><strong>3.5 / 6.0 m</strong><span>3.5 m → ทางเดียว · 6 m ↔ สองทาง</span></div></div>
+<p class="scope-note">RESEARCH PROTOTYPE · ตรวจรถเข้า–ออกด้วยแบบจำลองความเร็วต่ำและชุดเส้นทางจำกัดเมื่อกดตรวจ · ไม่ใช่การรับรองแบบก่อสร้าง</p>
 </section>
-</main><script src="/app.js"></script><script src="/interactions.js"></script></body></html>
+</main><script src="/app.js"></script><script src="/interactions.js"></script><script src="/training.js"></script></body></html>

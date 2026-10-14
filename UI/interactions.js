@@ -6,7 +6,7 @@
   let previewEpoch = 0, lastRenderedPreview = 0;
   const svg = $('canvas');
   const ns = 'http://www.w3.org/2000/svg';
-  const editable = () => live && tab === 'tools' && !actionPending && live.history.length < live.max_actions;
+  const editable = () => live && live.session_mode!=='environment_test' && tab === 'tools' && !actionPending && live.history.length < live.max_actions;
   const scenePoint = event => new DOMPoint(event.clientX,event.clientY).matrixTransform(svg.getScreenCTM().inverse());
   const inSite = point => point && point.x >= 0 && point.y >= 0 && point.x <= live.layout.width && point.y <= live.layout.height;
   function inCanvas(event) {
@@ -17,7 +17,8 @@
     if(!live || $('palette').children.length) return;
     const tools=[{key:'select',label:'เลือก / ย้าย',icon:'↖',note:'ลากอุปกรณ์เดิม'},
       ...Object.entries(live.templates).map(([key,t])=>({key,label:t.label,icon:t.angle===90?'▥':t.angle===45?'▨':'▤',note:`${t.length} × ${t.width} m`,kind:'slot',template:key})),
-      ...[3.5,6].map(width=>({key:'road-'+width,label:'ถนน '+width.toFixed(1)+' m',icon:'⇄',note:'ปรับความยาวได้',kind:'road',width}))];
+      ...[3.5,6].map(width=>({key:'road-'+width,label:'ถนน '+width.toFixed(1)+' m',icon:width===3.5?'→':'↔',note:width===3.5?'ทางเดียว · R หมุนทิศ':'สองทาง · ปรับความยาวได้',kind:'road',width})),
+      ...['perpendicular','angled'].map(template=>({key:'row-'+template,label:'แถว '+live.templates[template].label,icon:'▥▥',note:'ทั้งแถว = 1 action',kind:'row',template}))];
     for(const tool of tools) {
       const button=document.createElement('button');
       button.className='palette-card';button.type='button';button.dataset.tool=tool.key;
@@ -39,7 +40,7 @@
     if(brush) {
       selected='';$('selected').value='';
       $('kind').value=brush.kind;
-      if(brush.kind==='slot') $('template').value=brush.template;
+      if(brush.kind==='slot' || brush.kind==='row') $('template').value=brush.template;
       else $('road-width').value=brush.width;
       $('kind').onchange();
     }
@@ -53,7 +54,7 @@
     for(const button of $('palette').children) {
       const active=brush ? button.dataset.tool===brush.key : button.dataset.tool==='select';
       button.classList.toggle('active',active);button.setAttribute('aria-pressed',String(active));
-      button.disabled=!editable();
+      button.disabled=!editable() || (button.dataset.tool.startsWith('row-') && !runtimeSupports('place_row'));
     }
     $('active-tool').textContent=(brush ? brush.label+' · คลิกหรือลากวาง' : selected ? 'เลือก: '+selected+' · ลากเพื่อย้าย' : 'เลือก / ลากย้ายอุปกรณ์')+' · '+$('rotation').value+'°';
     $('quick-remove').disabled=!editable() || !selected;
@@ -62,11 +63,12 @@
     svg.classList.toggle('paint-mode',!!brush && tab==='tools');
     if(gesture && !editable()) cancel();
   }
-  function drawGhost(point, item, accepted, reason) {
-    clearGhost();
+  function drawGhost(point, item, accepted, reason, append=false) {
+    if(!append) clearGhost();
     if(!point || !item) return;
     const group=document.createElementNS(ns,'g');
-    group.id='placement-ghost';group.setAttribute('pointer-events','none');
+    group.id=append?'placement-ghost-'+item.id:'placement-ghost';group.setAttribute('pointer-events','none');
+    if(append) group.setAttribute('data-preview-extra','true');
     group.setAttribute('transform',`translate(${point.x} ${point.y}) rotate(${item.angle})`);
     const shape=document.createElementNS(ns,'rect');
     for(const [key,value] of Object.entries({x:-item.length/2,y:-item.width/2,width:item.length,height:item.width,rx:.08,
@@ -85,6 +87,7 @@
     const moving=gesture?.source==='move';
     const tool=gesture?.tool || brush;
     const command=moving ? {type:'move',id:gesture.item.id,x:point.x,y:point.y,rotation}
+      : tool.kind==='row' ? {type:'place_row',template:tool.template,row_length:Number($('quick-length').value),x:point.x,y:point.y,rotation}
       : {type:'place',kind:tool.kind,template:tool.template,width:tool.width,
          length:Number($('quick-length').value),x:point.x,y:point.y,rotation};
     queuedPreview={command,sequence:++previewSequence,epoch:previewEpoch};
@@ -99,7 +102,7 @@
       const result=await api('propose',request.command);
       if(request.epoch===previewEpoch && request.sequence===previewSequence && request.sequence>=lastRenderedPreview && editable() && result.proposal) {
         lastRenderedPreview=request.sequence;
-        drawGhost(result.proposal,result.proposal,result.accepted,result.reason);
+        (result.proposals || [result.proposal]).forEach((item,index)=>drawGhost(item,item,result.accepted,result.reason,index>0));
       }
     } catch(error) {
       if(request.epoch===previewEpoch && request.sequence===previewSequence) {
@@ -118,9 +121,9 @@
     if(!tool) return null;
     if(tool.kind==='road') return {kind:'road',width:tool.width,length:Number($('quick-length').value),angle:rotation};
     const t=live.templates[tool.template];
-    return {...t,kind:'slot',angle:t.angle+rotation};
+    return {...t,kind:tool.kind,angle:t.angle+rotation};
   }
-  function clearGhost() { $('placement-ghost')?.remove(); }
+  function clearGhost() { $('placement-ghost')?.remove();svg.querySelectorAll('[data-preview-extra]').forEach(node=>node.remove()); }
   function cursorToken(event, item) {
     if(!item) return;
     let token=$('drag-token');
@@ -129,7 +132,8 @@
       token.setAttribute('aria-hidden','true');document.body.append(token);
     }
     token.style.left=(event.clientX+16)+'px';token.style.top=(event.clientY+16)+'px';
-    token.textContent=(item.kind==='road'?'⇄ ถนน':'▥ ช่องจอด')+' · '+item.length+' × '+item.width+' m';
+    token.textContent=item.kind==='row' ? '▥▥ แถวจอด · '+$('quick-length').value+' m · จุดจับช่องแรก'
+      : (item.kind==='road'?'⇄ ถนน':'▥ ช่องจอด')+' · '+item.length+' × '+item.width+' m';
     token.classList.toggle('hidden',inCanvas(event) && inSite(scenePoint(event)));
   }
   function finishVisuals() {
@@ -192,6 +196,8 @@
     const rotation=Number($('rotation').value);
     if(current.source==='move') {
       await submit('move',{type:'move',id:current.item.id,x:destination.x,y:destination.y,rotation});
+    } else if(current.tool.kind==='row') {
+      await submit('place_row',{type:'place_row',template:current.tool.template,row_length:Number($('quick-length').value),x:destination.x,y:destination.y,rotation});
     } else {
       await submit('place',{type:'place',kind:current.tool.kind,template:current.tool.template,
         width:current.tool.width,length:Number($('quick-length').value),x:destination.x,y:destination.y,rotation});
@@ -211,7 +217,7 @@
   }
   $('quick-rotate').onclick=rotateTool;
   $('quick-remove').onclick=()=>submit('remove');
-  $('quick-length').oninput=()=>{$('road-length').value=$('quick-length').value;if(hover)ghost(hover,visualItem());};
+  $('quick-length').oninput=()=>{$('road-length').value=$('quick-length').value;$('row-length').value=$('quick-length').value;if(hover)ghost(hover,visualItem());};
   $('road-length').addEventListener('input',()=>{$('quick-length').value=$('road-length').value;});
   $('rotation').addEventListener('change',sync);
   document.addEventListener('keydown',event=>{

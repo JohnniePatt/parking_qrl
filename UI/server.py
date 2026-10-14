@@ -17,9 +17,9 @@ def serve(application, ui_root, port):
         def handle_request(self, method):
             path = urlsplit(self.path).path
             try:
-                if method=='GET' and path in ('/','/app.js','/interactions.js','/styles.css'):
-                    name = {'/':'index.html','/app.js':'app.js','/interactions.js':'interactions.js','/styles.css':'styles.css'}[path]
-                    content_type = {'/':'text/html','/app.js':'text/javascript','/interactions.js':'text/javascript','/styles.css':'text/css'}[path]
+                if method=='GET' and path in ('/','/app.js','/interactions.js','/training.js','/styles.css'):
+                    name = {'/':'index.html','/app.js':'app.js','/interactions.js':'interactions.js','/training.js':'training.js','/styles.css':'styles.css'}[path]
+                    content_type = {'/':'text/html','/app.js':'text/javascript','/interactions.js':'text/javascript','/training.js':'text/javascript','/styles.css':'text/css'}[path]
                     return self.respond(200,(ui_root/name).read_bytes(),content_type+'; charset=utf-8')
                 if not path.startswith('/api/'):
                     return self.respond(404,b'{"error":"Not found"}')
@@ -41,6 +41,8 @@ def serve(application, ui_root, port):
                 self.respond(200,json.dumps(result,ensure_ascii=False,allow_nan=False).encode())
             except (ValueError, KeyError, TypeError, OverflowError) as exc:
                 self.respond(400,json.dumps({'error':str(exc)},ensure_ascii=False).encode())
+            except (ImportError, RuntimeError) as exc:
+                self.respond(400,json.dumps({'error':str(exc)+'; use the project virtual environment and install requirements.txt'},ensure_ascii=False).encode())
 
         def do_GET(self):
             self.handle_request('GET')

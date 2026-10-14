@@ -25,8 +25,8 @@ nodes.get('quick-length').value='12';nodes.get('road-length').value='12';nodes.g
 const document={body:new Element(),createElement:()=>new Element(),createElementNS:()=>new Element(),
   querySelectorAll:()=>[],addEventListener:(name,fn)=>listeners.set(name,fn)};
 const context=vm.createContext({document,window:{addEventListener(){}},console,
-  $:id=>nodes.get(id),live:{history:[],max_actions:200,items:[],layout:{width:48,height:30},templates:{perpendicular:{label:'90',angle:90,length:5.5,width:2.5}}},
-  tab:'tools',selected:'',actionPending:false,esc:String,
+  $:id=>nodes.get(id),live:{history:[],max_actions:200,items:[],layout:{width:48,height:30},templates:{perpendicular:{label:'90',angle:90,length:5.5,width:2.5},angled:{label:'45',angle:45,length:5.5,width:2.5}}},
+  tab:'tools',selected:'',actionPending:false,esc:String,runtimeSupports:()=>true,
   DOMPoint:class {constructor(x,y){this.x=x;this.y=y;} matrixTransform(){return this;}},
   setTimeout:fn=>{timers.set(++timerId,fn);return timerId;},clearTimeout:id=>timers.delete(id),
   api:(_route,command)=>new Promise((resolve,reject)=>requests.push({command,resolve,reject})),

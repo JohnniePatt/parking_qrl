@@ -2,3 +2,6 @@ __pycache__/
 *.py[cod]
 .DS_Store
 Outputs/manual_*.json
+Outputs/environment_*.json
+Outputs/Model_RL/*/
+Outputs/Model_QRL/*/
